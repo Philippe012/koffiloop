@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "680298750372",
+    "project_id": "koffiloop",
+    "storage_bucket": "koffiloop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:680298750372:android:aed3646f872ac64e15e131",
+        "android_client_info": {
+          "package_name": "com.example.koffiloop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHlbNcKkkAjnCBDoBkDeckphG1io_GykI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
