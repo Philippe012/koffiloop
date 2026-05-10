@@ -27,6 +27,13 @@ class ThemeService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_themeKey, mode == ThemeMode.dark);
+    notifyListeners();
+  }
+
   ThemeData get currentTheme => _themeMode == ThemeMode.dark 
       ? AppTheme.dark 
       : AppTheme.light;

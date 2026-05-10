@@ -15,6 +15,12 @@ import 'package:koffiloop/features/seller_portal/screens/seller_dashboard.dart';
 import 'package:koffiloop/features/order_tracking/screens/order_status_screen.dart';
 import 'package:koffiloop/features/settings/screens/settings_screen.dart'; 
 
+import 'package:koffiloop/features/landing/screens/splash_screen.dart';
+
+// import 'package:koffiloop/features/messages/screens/messages_screen.dart';
+// import 'package:koffiloop/features/messages/screens/chat_screen.dart';
+import 'package:koffiloop/features/messages/screens/seller_messages_screen.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -38,14 +44,15 @@ class KofiLoopApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
-          themeMode: themeService.themeMode,
-          home: const RoleBasedHome(),
+          themeMode: ThemeMode.system,
+          home: const SplashScreen(),
           routes: {
             '/landing': (_) => const LandingScreen(),
             '/home': (_) => const CustomerDashboard(),
             '/seller': (_) => const SellerDashboard(),
             '/order': (_) => const OrderStatusScreen(),
             '/settings': (_) => const SettingsScreen(),
+            '/seller-messages': (_) => const SellerMessagesScreen(),
           },
         ),
       ),

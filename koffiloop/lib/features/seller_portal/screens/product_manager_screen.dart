@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:koffiloop/core/theme/app_theme.dart';
+import 'dart:io';
 
 class ProductManagerScreen extends StatefulWidget {
   final String shopId;
   final bool manageStock;
-  const ProductManagerScreen({super.key, required this.shopId, this.manageStock = false});
 
-  @override State<ProductManagerScreen> createState() => _ProductManagerScreenState();
+  const ProductManagerScreen(
+      {super.key, required this.shopId, this.manageStock = false});
+
+  @override
+  State<ProductManagerScreen> createState() =>
+      _ProductManagerScreenState();
 }
 
 class _ProductManagerScreenState extends State<ProductManagerScreen> {
@@ -18,171 +23,109 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
   final _nameCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+
   String? _editingId;
   File? _imageFile;
   String? _existingImageUrl;
   bool _uploading = false;
-  final ImagePicker _picker = ImagePicker();
+  bool _showForm = false;
 
-  @override void dispose() {
-    _nameCtrl.dispose(); _priceCtrl.dispose(); _descCtrl.dispose();
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _priceCtrl.dispose();
+    _descCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        setState(() => _imageFile = File(image.path));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
+    final XFile? img = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (img != null && mounted) setState(() => _imageFile = File(img.path));
   }
 
   Future<String?> _uploadImage() async {
     if (_imageFile == null) return _existingImageUrl;
-    
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('products')
+        .child(widget.shopId)
+        .child(
+            '${DateTime.now().millisecondsSinceEpoch}_${_nameCtrl.text.trim().replaceAll(' ', '_')}');
+    await ref.putFile(_imageFile!);
+    return await ref.getDownloadURL();
+  }
+
+  Future<void> _saveProduct() async {
+    if (!_formKey.currentState!.validate()) return;
     setState(() => _uploading = true);
     try {
-      final String fileName = '${DateTime.now().millisecondsSinceEpoch}_${_nameCtrl.text.replaceAll(' ', '_')}';
-      final Reference ref = FirebaseStorage.instance
-          .ref()
-          .child('products')
-          .child(widget.shopId)
-          .child(fileName);
-      
-      await ref.putFile(_imageFile!);
-      final String downloadUrl = await ref.getDownloadURL();
-      return downloadUrl;
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
-        );
+      final imageUrl = await _uploadImage();
+      final product = {
+        'name': _nameCtrl.text.trim(),
+        'price': double.parse(_priceCtrl.text.trim()),
+        'description': _descCtrl.text.trim(),
+        'imageUrl': imageUrl ?? '',
+        'inStock': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      final col = FirebaseFirestore.instance
+          .collection('shops')
+          .doc(widget.shopId)
+          .collection('products');
+
+      if (_editingId != null) {
+        await col.doc(_editingId).update(product);
+        _showSnack('Product updated', AppTheme.success);
+      } else {
+        await col.add(product);
+        _showSnack('Product added to menu', AppTheme.success);
       }
-      return null;
+      _clearForm();
+    } catch (e) {
+      _showSnack('Error: $e', AppTheme.error);
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
   }
 
-  Future<void> _saveProduct() async {
-    if (!_formKey.currentState!.validate()) return;
-    
-    final imageUrl = await _uploadImage();
-    if (imageUrl == null && _imageFile != null) return;
-    
-    final product = {
-      'name': _nameCtrl.text.trim(),
-      'price': double.tryParse(_priceCtrl.text) ?? 0.0,
-      'description': _descCtrl.text.trim(),
-      'imageUrl': imageUrl ?? _existingImageUrl ?? '',
-      'inStock': true,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    try {
-      if (_editingId != null) {
-        await FirebaseFirestore.instance
-            .collection('shops')
-            .doc(widget.shopId)
-            .collection('products')
-            .doc(_editingId)
-            .update(product);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('✓ Product updated'), behavior: SnackBarBehavior.floating),
-          );
-        }
-      } else {
-        await FirebaseFirestore.instance
-            .collection('shops')
-            .doc(widget.shopId)
-            .collection('products')
-            .add(product);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('✓ Product added'), behavior: SnackBarBehavior.floating),
-          );
-        }
-      }
-      _clearForm();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
-        );
-      }
-    }
+  Future<void> _toggleStock(String id, bool current) async {
+    await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(widget.shopId)
+        .collection('products')
+        .doc(id)
+        .update({'inStock': !current});
   }
 
-  Future<void> _toggleStock(String productId, bool current) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('shops')
-          .doc(widget.shopId)
-          .collection('products')
-          .doc(productId)
-          .update({'inStock': !current});
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  Future<void> _deleteProduct(String productId) async {
+  Future<void> _deleteProduct(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Product'),
-        content: const Text('Are you sure? This cannot be undone.'),
+        content: const Text('This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), 
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Delete', style: TextStyle(color: Colors.white))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.error),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
     if (confirmed != true) return;
-    
-    try {
-      await FirebaseFirestore.instance
-          .collection('shops')
-          .doc(widget.shopId)
-          .collection('products')
-          .doc(productId)
-          .delete();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✓ Product deleted'), behavior: SnackBarBehavior.floating),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  void _clearForm() {
-    _formKey.currentState?.reset();
-    _nameCtrl.clear(); _priceCtrl.clear(); _descCtrl.clear();
-    setState(() {
-      _editingId = null;
-      _imageFile = null;
-      _existingImageUrl = null;
-    });
+    await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(widget.shopId)
+        .collection('products')
+        .doc(id)
+        .delete();
+    _showSnack('Product deleted', AppTheme.warning);
   }
 
   void _editProduct(String id, Map<String, dynamic> data) {
@@ -192,216 +135,473 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
       _priceCtrl.text = (data['price'] ?? 0.0).toString();
       _descCtrl.text = data['description'] ?? '';
       _existingImageUrl = data['imageUrl'] ?? '';
+      _imageFile = null;
+      _showForm = true;
     });
-    // Scrollable.ensureVisible(context.findRenderObject()!, duration: const Duration(milliseconds: 300));
   }
 
-  @override Widget build(BuildContext context) {
+  void _clearForm() {
+    _formKey.currentState?.reset();
+    _nameCtrl.clear();
+    _priceCtrl.clear();
+    _descCtrl.clear();
+    setState(() {
+      _editingId = null;
+      _imageFile = null;
+      _existingImageUrl = null;
+      _showForm = false;
+    });
+  }
+
+  void _showSnack(String msg, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: color),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.manageStock ? '📦 Manage Stock' : '➕ Add Product'),
+        title: Text(widget.manageStock ? 'Manage Stock' : 'Products'),
+        backgroundColor:
+            isDark ? AppTheme.darkSurface : AppTheme.primary,
+        foregroundColor: Colors.white,
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontFamily: 'Georgia',
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          if (_editingId != null)
-            IconButton(icon: const Icon(Icons.close), onPressed: _clearForm),
+          if (_showForm)
+            IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+              onPressed: _clearForm,
+            )
+          else if (!widget.manageStock)
+            IconButton(
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              onPressed: () => setState(() => _showForm = true),
+              tooltip: 'Add Product',
+            ),
         ],
       ),
       body: Column(
         children: [
-          Card(
-            margin: const EdgeInsets.all(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_editingId != null ? '✏️ Edit Product' : '✨ New Product', 
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 16),
-                    // Image Picker
-                    GestureDetector(
-                      onTap: _pickImage,
-                      child: Container(
-                        height: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade400),
-                        ),
-                        child: _imageFile != null
+          // Form panel (collapsible)
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: _showForm
+                ? _buildForm(isDark)
+                : const SizedBox.shrink(),
+          ),
+
+          // Products list
+          Expanded(child: _buildProductList(isDark)),
+        ],
+      ),
+      floatingActionButton: !widget.manageStock && !_showForm
+          ? FloatingActionButton.extended(
+              onPressed: () => setState(() => _showForm = true),
+              backgroundColor: AppTheme.primary,
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: const Text('Add Product',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildForm(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppTheme.cardShadow(isDark),
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _editingId != null ? 'Edit Product' : 'New Product',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Georgia',
+                color: isDark
+                    ? AppTheme.darkTextPrimary
+                    : AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            // Image picker row
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppTheme.darkElevated
+                          : AppTheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: _imageFile != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(_imageFile!, fit: BoxFit.cover),
+                          )
+                        : _existingImageUrl != null &&
+                                _existingImageUrl!.isNotEmpty
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(16),
-                                child: Image.file(_imageFile!, fit: BoxFit.cover),
+                                child: CachedNetworkImage(
+                                    imageUrl: _existingImageUrl!,
+                                    fit: BoxFit.cover),
                               )
-                            : _existingImageUrl != null && _existingImageUrl!.isNotEmpty
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Image.network(_existingImageUrl!, fit: BoxFit.cover),
-                                  )
-                                : const Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.add_photo_alternate, size: 48, color: Colors.grey),
-                                      SizedBox(height: 8),
-                                      Text('Tap to add product image', style: TextStyle(color: Colors.grey)),
-                                    ],
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_photo_alternate_rounded,
+                                      color: isDark
+                                          ? AppTheme.darkTextSecondary
+                                          : AppTheme.textSecondary,
+                                      size: 28),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Photo',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark
+                                          ? AppTheme.darkTextSecondary
+                                          : AppTheme.textSecondary,
+                                    ),
                                   ),
+                                ],
+                              ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _nameCtrl,
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Name required'
+                            : null,
+                        decoration: const InputDecoration(
+                          hintText: 'Product name',
+                          prefixIcon:
+                              Icon(Icons.coffee_rounded, size: 18),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _nameCtrl,
-                      decoration: const InputDecoration(labelText: 'Product Name *', prefixIcon: Icon(Icons.coffee)),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _priceCtrl,
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: 'Price (\$) *', prefixIcon: Icon(Icons.attach_money)),
-                      validator: (v) => v == null || double.tryParse(v) == null || double.parse(v) <= 0 ? 'Valid price required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _descCtrl,
-                      decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.description), alignLabelWithHint: true),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            icon: _uploading 
-                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : Icon(_editingId != null ? Icons.save : Icons.add),
-                            label: Text(_editingId != null ? 'Update Product' : 'Add to Menu'),
-                            onPressed: _uploading ? null : _saveProduct,
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _priceCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return 'Price required';
+                          }
+                          if (double.tryParse(v) == null ||
+                              double.parse(v) <= 0) {
+                            return 'Enter valid price';
+                          }
+                          return null;
+                        },
+                        decoration: const InputDecoration(
+                          hintText: 'Price (\$)',
+                          prefixIcon: Icon(Icons.attach_money_rounded,
+                              size: 18),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _descCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'Description (optional)',
+                prefixIcon: Icon(Icons.description_outlined, size: 18),
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: _uploading ? null : _saveProduct,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: _uploading
+                        ? [Colors.grey.shade400, Colors.grey.shade400]
+                        : [AppTheme.primary, AppTheme.primaryDark],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: _uploading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(
+                          _editingId != null
+                              ? 'Update Product'
+                              : 'Add to Menu',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
                           ),
                         ),
-                        if (_editingId != null) ...[
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              icon: const Icon(Icons.cancel),
-                              label: const Text('Cancel'),
-                              onPressed: _clearForm,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('shops')
-                  .doc(widget.shopId)
-                  .collection('products')
-                  .orderBy('updatedAt', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(widget.manageStock ? Icons.inventory_2_outlined : Icons.menu_book_outlined, 
-                            size: 64, color: Colors.grey.shade400),
-                        const SizedBox(height: 16),
-                        Text(widget.manageStock ? 'No products to manage' : 'Your menu is empty', 
-                            style: TextStyle(fontSize: 16, color: Colors.grey.shade600)),
-                      ],
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    final doc = snapshot.data!.docs[index];
-                    final p = doc.data() as Map<String, dynamic>;
-                    return _ProductListItem(
-                      id: doc.id,
-                      name: p['name'] ?? 'Unnamed',
-                      price: (p['price'] as num?)?.toDouble() ?? 0.0,
-                      imageUrl: p['imageUrl'] ?? '',
-                      inStock: p['inStock'] ?? true,
-                      onEdit: () => _editProduct(doc.id, p),
-                      onDelete: () => _deleteProduct(doc.id),
-                      onToggleStock: () => _toggleStock(doc.id, p['inStock'] ?? true),
-                      manageStockMode: widget.manageStock,
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildProductList(bool isDark) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('shops')
+          .doc(widget.shopId)
+          .collection('products')
+          .orderBy('updatedAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child:
+                  CircularProgressIndicator(color: AppTheme.primary));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  widget.manageStock
+                      ? Icons.inventory_2_outlined
+                      : Icons.menu_book_outlined,
+                  size: 64,
+                  color: isDark
+                      ? Colors.grey.shade600
+                      : Colors.grey.shade300,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No products yet',
+                  style: TextStyle(
+                    fontSize: 17,
+                    color: isDark
+                        ? AppTheme.darkTextPrimary
+                        : AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tap + to add your first product',
+                  style: TextStyle(
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+          itemCount: snapshot.data!.docs.length,
+          itemBuilder: (_, i) {
+            final doc = snapshot.data!.docs[i];
+            final p = doc.data() as Map<String, dynamic>;
+            return _ProductItem(
+              id: doc.id,
+              data: p,
+              isDark: isDark,
+              manageStock: widget.manageStock,
+              onEdit: () => _editProduct(doc.id, p),
+              onDelete: () => _deleteProduct(doc.id),
+              onToggle: () => _toggleStock(doc.id, p['inStock'] ?? true),
+            );
+          },
+        );
+      },
     );
   }
 }
 
-class _ProductListItem extends StatelessWidget {
+class _ProductItem extends StatelessWidget {
   final String id;
-  final String name;
-  final double price;
-  final String imageUrl;
-  final bool inStock;
+  final Map<String, dynamic> data;
+  final bool isDark;
+  final bool manageStock;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final VoidCallback onToggleStock;
-  final bool manageStockMode;
+  final VoidCallback onToggle;
 
-  const _ProductListItem({
-    required this.id, required this.name, required this.price, 
-    required this.imageUrl, required this.inStock,
-    required this.onEdit, required this.onDelete, 
-    required this.onToggleStock, required this.manageStockMode,
+  const _ProductItem({
+    required this.id,
+    required this.data,
+    required this.isDark,
+    required this.manageStock,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onToggle,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final inStock = data['inStock'] ?? true;
+    final imgUrl = data['imageUrl'] ?? '';
+
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: imageUrl.isNotEmpty
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(imageUrl, width: 60, height: 60, fit: BoxFit.cover),
-              )
-            : Container(
-                width: 60, height: 60,
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.coffee, color: Colors.grey),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow(isDark),
+      ),
+      child: Row(
+        children: [
+          // Image
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppTheme.darkElevated
+                  : AppTheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: imgUrl.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CachedNetworkImage(
+                      imageUrl: imgUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => const Icon(
+                          Icons.coffee_rounded,
+                          color: AppTheme.primary),
+                    ),
+                  )
+                : const Icon(Icons.coffee_rounded,
+                    color: AppTheme.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  data['name'] ?? '',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppTheme.darkTextPrimary
+                        : AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      '\$${(data['price'] as num).toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: inStock
+                            ? AppTheme.success.withValues(alpha: 0.12)
+                            : Colors.grey.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        inStock ? 'In Stock' : 'Out of Stock',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: inStock
+                              ? AppTheme.success
+                              : (isDark
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Actions
+          if (manageStock)
+            IconButton(
+              icon: Icon(
+                inStock
+                    ? Icons.toggle_on_rounded
+                    : Icons.toggle_off_rounded,
+                color: inStock ? AppTheme.success : Colors.grey,
+                size: 30,
               ),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-        subtitle: Text('\$${price.toStringAsFixed(2)}${manageStockMode ? ' · ${inStock ? 'In Stock' : 'Out of Stock'}' : ''}'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (manageStockMode)
-              IconButton(
-                icon: Icon(inStock ? Icons.check_circle : Icons.cancel_outlined, 
-                    color: inStock ? AppTheme.success : Colors.grey),
-                tooltip: inStock ? 'Mark as Out of Stock' : 'Mark as In Stock',
-                onPressed: onToggleStock,
-              ),
-            IconButton(icon: const Icon(Icons.edit_outlined), tooltip: 'Edit', onPressed: onEdit),
-            IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), tooltip: 'Delete', onPressed: onDelete),
+              onPressed: onToggle,
+              tooltip:
+                  inStock ? 'Mark out of stock' : 'Mark in stock',
+            )
+          else ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              color: isDark
+                  ? AppTheme.darkTextSecondary
+                  : AppTheme.textSecondary,
+              onPressed: onEdit,
+              tooltip: 'Edit',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, size: 20),
+              color: AppTheme.error,
+              onPressed: onDelete,
+              tooltip: 'Delete',
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
