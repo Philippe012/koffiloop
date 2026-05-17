@@ -13,6 +13,7 @@ import 'package:koffiloop/core/theme/app_theme.dart';
 import 'package:koffiloop/features/messages/screens/chat_screen.dart';
 import 'package:koffiloop/features/messages/screens/messages_screen.dart';
 
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -42,12 +43,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _requestLocation() async {
     try {
       final perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        await Geolocator.requestPermission();
-      }
+        if (perm == LocationPermission.denied) {
+          final result = await Geolocator.requestPermission();
+          if (result == LocationPermission.deniedForever) return;
+          if (result == LocationPermission.denied) return;
+        }
+        if (perm == LocationPermission.deniedForever) return;
+      
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 10),
       );
+
+
       if (mounted) setState(() => _userPosition = pos);
     } catch (_) {}
   }
@@ -273,8 +281,9 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         return RefreshIndicator(
-          onRefresh: () =>
-              Future.delayed(const Duration(milliseconds: 500)),
+          onRefresh: () async {
+            await _requestLocation();
+          },
           color: AppTheme.primary,
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
@@ -857,7 +866,7 @@ class _MenuBottomSheet extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  '\$${(p['price'] as num).toStringAsFixed(2)}',
+                                  '\$${((p['price'] ?? 0) as num).toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 // import 'package:firebase_auth/firebase_auth.dart';
 
 import 'services/auth_service.dart';
@@ -16,14 +18,17 @@ import 'package:koffiloop/features/order_tracking/screens/order_status_screen.da
 import 'package:koffiloop/features/settings/screens/settings_screen.dart'; 
 
 import 'package:koffiloop/features/landing/screens/splash_screen.dart';
-
-// import 'package:koffiloop/features/messages/screens/messages_screen.dart';
-// import 'package:koffiloop/features/messages/screens/chat_screen.dart';
 import 'package:koffiloop/features/messages/screens/seller_messages_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  await FirebaseAppCheck.instance.activate(
+  providerAndroid: kDebugMode 
+      ? AndroidProvider.debug 
+      : AndroidProvider.playIntegrity,  
+);
   runApp(const KofiLoopApp());
 }
 
@@ -44,7 +49,7 @@ class KofiLoopApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
-          themeMode: ThemeMode.system,
+          themeMode: themeService.themeMode,
           home: const SplashScreen(),
           routes: {
             '/landing': (_) => const LandingScreen(),

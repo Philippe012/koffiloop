@@ -551,30 +551,18 @@ class _GoogleButton extends StatelessWidget {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Google G logo via colored icon approximation
+                  // Real Google logo
                   Container(
                     width: 22,
                     height: 22,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          Color(0xFF4285F4),
-                          Color(0xFF34A853),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'G',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'Georgia',
-                        ),
+                    padding: const EdgeInsets.all(2),
+                    child: Image.asset(
+                      'assets/images/google_logo.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.g_mobiledata_rounded,
+                        color: Color(0xFF4285F4),
+                        size: 20,
                       ),
                     ),
                   ),

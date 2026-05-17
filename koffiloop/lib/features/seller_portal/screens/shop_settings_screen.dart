@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:koffiloop/core/theme/app_theme.dart';
 import 'package:koffiloop/services/auth_service.dart';
+import 'dart:convert';
 import 'dart:io';
+import 'package:http/http.dart' as http;
 
 class ShopSettingsScreen extends StatefulWidget {
   const ShopSettingsScreen({super.key});
@@ -99,6 +100,29 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
     }
   }
 
+  Future<String?> _uploadImageToCloudinary(File file) async {
+    final uri = Uri.parse(
+      'https://api.cloudinary.com/v1_1/dyyzgowpd/upload',
+    );
+    final request = http.MultipartRequest('POST', uri);
+    request.fields['upload_preset'] = 'koffiloop_upload';
+    request.fields['folder'] = 'koffiloop';
+    request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (streamedResponse.statusCode >= 200 &&
+        streamedResponse.statusCode < 300) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      return data['secure_url'] as String?;
+    }
+
+    throw Exception(
+      'Cloudinary upload failed (${streamedResponse.statusCode}): ${response.body}',
+    );
+  }
+
  Future<void> _saveShop() async {
   if (!_formKey.currentState!.validate()) return;
   final auth = context.read<AuthService>();
@@ -109,13 +133,7 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
     String? imageUrl = _existingImageUrl;
 
     if (_imageFile != null) {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('shops')
-          .child('${auth.uid}_logo');
-      final uploadTask = ref.putFile(_imageFile!);
-      final snapshot = await uploadTask;
-      imageUrl = await snapshot.ref.getDownloadURL();
+      imageUrl = await _uploadImageToCloudinary(_imageFile!);
     }
 
     await FirebaseFirestore.instance
@@ -203,49 +221,34 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: _imageFile != null
-                                ? ClipRRect(
-                                    borderRadius:
-                                        BorderRadius.circular(16),
-                                    child: Image.file(_imageFile!,
-                                        fit: BoxFit.cover),
-                                  )
-                                : _existingImageUrl != null 
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(16),
-                                        child: Image.file(_imageFile!, fit: BoxFit.cover),
-                                      )
-                                    : _existingImageUrl != null && _existingImageUrl!.isNotEmpty
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(16),
-                                            child: Image.network(
-                                                _existingImageUrl!, fit: BoxFit.cover),
-                                          )
-                                        :  Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                              Icons
-                                                  .add_photo_alternate_rounded,
-                                              size: 48,
-                                              color: isDark
-                                                  ? AppTheme
-                                                      .darkTextSecondary
-                                                  : AppTheme
-                                                      .textSecondary),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'Tap to upload shop photo',
-                                            style: TextStyle(
-                                              color: isDark
-                                                  ? AppTheme
-                                                      .darkTextSecondary
-                                                  : AppTheme
-                                                      .textSecondary,
-                                            ),
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Image.file(_imageFile!, fit: BoxFit.cover),
+                                )
+                              : (_existingImageUrl != null && _existingImageUrl!.isNotEmpty)
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Image.network(_existingImageUrl!, fit: BoxFit.cover),
+                                    )
+                                  : Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.add_photo_alternate_rounded,
+                                            size: 48,
+                                            color: isDark
+                                                ? AppTheme.darkTextSecondary
+                                                : AppTheme.textSecondary),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Tap to upload shop photo',
+                                          style: TextStyle(
+                                            color: isDark
+                                                ? AppTheme.darkTextSecondary
+                                                : AppTheme.textSecondary,
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
+                                    ),
                           ),
                           Positioned(
                             bottom: 10,

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:koffiloop/core/theme/app_theme.dart';
 
 class ThemeService extends ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light;
-  static const String _themeKey = 'theme_mode';
+  ThemeMode _themeMode = ThemeMode.system; // safe default until prefs load
+  static const String _themeKey = 'theme_mode'; // now stores 'light'|'dark'|'system'
 
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
@@ -15,26 +14,32 @@ class ThemeService extends ChangeNotifier {
 
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    final isDark = prefs.getBool(_themeKey) ?? false;
-    _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
-    notifyListeners();
-  }
 
-  Future<void> toggleTheme() async {
-    _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_themeKey, _themeMode == ThemeMode.dark);
+    final raw = prefs.getString(_themeKey) ?? 'system';
+
+    _themeMode = ThemeMode.values.firstWhere(
+      (m) => m.toString().split('.').last == raw,
+      orElse: () => ThemeMode.system,
+    );
     notifyListeners();
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
+    if (_themeMode == mode) return; // no-op
     _themeMode = mode;
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_themeKey, mode == ThemeMode.dark);
+    await prefs.setString(_themeKey, mode.toString().split('.').last);
+
     notifyListeners();
   }
 
-  ThemeData get currentTheme => _themeMode == ThemeMode.dark 
-      ? AppTheme.dark 
-      : AppTheme.light;
+  Future<void> toggleTheme() async {
+    final next = switch (_themeMode) {
+      ThemeMode.light  => ThemeMode.dark,
+      ThemeMode.dark   => ThemeMode.system,
+      ThemeMode.system => ThemeMode.light,
+    };
+    await setThemeMode(next);
+  }
 }

@@ -14,8 +14,10 @@ dependencies:
   firebase_core: ^4.7.0
   firebase_auth: ^6.4.0
   cloud_firestore: ^6.3.0
-  firebase_storage: 13.3.0
+  firebase_storage: ^13.3.0
   image_picker: ^1.1.2
+  url_launcher: ^6.3.1
+  http: ^1.2.1
   provider: ^6.1.5+1
   intl: ^0.20.2
   shared_preferences: ^2.5.3
@@ -33,11 +35,16 @@ dependencies:
   flutter_local_notifications: ^17.2.1
   timezone: ^0.9.4
 
+  firebase_app_check: ^0.4.4+1
+
+ 
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -45,3 +52,9 @@ flutter:
   assets:
     - assets/images/coffee_bg.jpeg
     - assets/images/logo-white.png
+    - assets/images/google_logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo-white.png"

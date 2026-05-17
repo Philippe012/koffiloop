@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:koffiloop/core/theme/app_theme.dart';
@@ -44,16 +45,32 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
     if (img != null && mounted) setState(() => _imageFile = File(img.path));
   }
 
-  Future<String?> _uploadImage() async {
+    Future<String?> _uploadImage() async {
     if (_imageFile == null) return _existingImageUrl;
-    final ref = FirebaseStorage.instance
-        .ref()
-        .child('products')
-        .child(widget.shopId)
-        .child(
-            '${DateTime.now().millisecondsSinceEpoch}_${_nameCtrl.text.trim().replaceAll(' ', '_')}');
-    await ref.putFile(_imageFile!);
-    return await ref.getDownloadURL();
+    return await _uploadImageToCloudinary(_imageFile!);
+  }
+
+  Future<String> _uploadImageToCloudinary(File file) async {
+    final uri = Uri.parse(
+      'https://api.cloudinary.com/v1_1/dyyzgowpd/upload',
+    );
+
+    final request = http.MultipartRequest('POST', uri);
+    request.fields['upload_preset'] = 'koffiloop_upload';
+    request.fields['folder'] = 'koffiloop';
+    request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      return data['secure_url'] as String;
+    }
+
+    throw Exception(
+      'Cloudinary upload failed (${response.statusCode}): ${response.body}',
+    );
   }
 
   Future<void> _saveProduct() async {

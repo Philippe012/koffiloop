@@ -8,6 +8,12 @@ import 'package:koffiloop/features/seller_portal/screens/product_manager_screen.
 import 'package:koffiloop/features/seller_portal/screens/shop_settings_screen.dart';
 import 'package:koffiloop/models/order_model.dart';
 
+import 'package:koffiloop/features/seller_portal/screens/seller_analytics_screen.dart';
+import 'package:koffiloop/features/seller_portal/screens/seller_profile_screen.dart';
+import 'package:koffiloop/features/messages/screens/seller_messages_screen.dart';
+
+
+
 class SellerDashboard extends StatefulWidget {
   const SellerDashboard({super.key});
 
@@ -16,6 +22,14 @@ class SellerDashboard extends StatefulWidget {
 }
 
 class _SellerDashboardState extends State<SellerDashboard> {
+  int _currentIndex = 0;
+
+  static const _navItems = [
+    _NavItem(icon: Icons.dashboard_outlined,        activeIcon: Icons.dashboard_rounded,     label: 'Dashboard'),
+    _NavItem(icon: Icons.chat_bubble_outline_rounded, activeIcon: Icons.chat_bubble_rounded, label: 'Messages'),
+    _NavItem(icon: Icons.person_outline_rounded,    activeIcon: Icons.person_rounded,        label: 'Profile'),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -35,41 +49,33 @@ class _SellerDashboardState extends State<SellerDashboard> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final auth = context.watch<AuthService>();
 
+    final screens = [
+      _DashboardBody(auth: auth, isDark: isDark),                  // Tab 0
+      SellerMessagesScreen(),                       // Tab 1
+      const SellerProfileScreen(),                                  // Tab 2
+    ];
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: NestedScrollView(
-        headerSliverBuilder: (_, __) => [
-          _buildAppBar(isDark, auth),
-        ],
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              _StatsRow(sellerId: auth.uid, isDark: isDark),
-              const SizedBox(height: 24),
-              _SectionHeader(
-                  title: 'Quick Actions', isDark: isDark),
-              const SizedBox(height: 12),
-              _buildQuickActions(context, auth.uid, isDark),
-              const SizedBox(height: 24),
-              _SectionHeader(
-                  title: 'Active Orders', isDark: isDark),
-              const SizedBox(height: 12),
-              _OrdersList(sellerId: auth.uid, isDark: isDark),
-            ],
-          ),
-        ),
+      appBar: _currentIndex == 0 ? _buildAppBar(isDark) : null,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: screens,
+      ),
+      bottomNavigationBar: _BottomNav(
+        currentIndex: _currentIndex,
+        isDark: isDark,
+        items: _navItems,
+        onTap: (i) => setState(() => _currentIndex = i),
       ),
     );
   }
-
-  SliverAppBar _buildAppBar(bool isDark, AuthService auth) {
-    return SliverAppBar(
-      pinned: true,
-      backgroundColor:
-          isDark ? AppTheme.darkSurface : AppTheme.primary,
+  
+  
+  // ── CHANGED: SliverAppBar → AppBar, removed Messages/Logout (now in Profile tab) ──
+  AppBar _buildAppBar(bool isDark) {
+    return AppBar(
+      automaticallyImplyLeading: false,
+      backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.primary,
       foregroundColor: Colors.white,
       title: const Text(
         'Seller Dashboard',
@@ -80,95 +86,14 @@ class _SellerDashboardState extends State<SellerDashboard> {
         ),
       ),
       actions: [
-        // Messages
+        // Only the shop-settings shortcut stays here — logout/messages live in Profile tab
         IconButton(
-          icon: const Icon(Icons.chat_bubble_outline_rounded,
-              color: Colors.white),
-          onPressed: () =>
-              Navigator.pushNamed(context, '/seller-messages',
-                  arguments: {'shopId': auth.uid}),
-          tooltip: 'Customer Messages',
-        ),
-        IconButton(
-          icon: const Icon(Icons.settings_outlined, color: Colors.white),
+          icon: const Icon(Icons.storefront_outlined, color: Colors.white),
           onPressed: () => Navigator.push(context,
               MaterialPageRoute(builder: (_) => const ShopSettingsScreen())),
           tooltip: 'Shop Settings',
         ),
-        IconButton(
-          icon: const Icon(Icons.logout_rounded, color: Colors.white),
-          onPressed: () async {
-            await context.read<AuthService>().logout();
-            if (mounted) {
-              Navigator.pushNamedAndRemoveUntil(
-                  context, '/landing', (r) => false);
-            }
-          },
-          tooltip: 'Sign Out',
-        ),
       ],
-    );
-  }
-
-  Widget _buildQuickActions(
-      BuildContext context, String uid, bool isDark) {
-    final actions = [
-      _QuickAction(
-        icon: Icons.add_circle_outline_rounded,
-        label: 'Add Product',
-        subtitle: 'List a new item',
-        color: AppTheme.primary,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => ProductManagerScreen(shopId: uid)),
-        ),
-      ),
-      _QuickAction(
-        icon: Icons.inventory_2_outlined,
-        label: 'Manage Stock',
-        subtitle: 'Update availability',
-        color: AppTheme.secondary,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) =>
-                  ProductManagerScreen(shopId: uid, manageStock: true)),
-        ),
-      ),
-      _QuickAction(
-        icon: Icons.storefront_rounded,
-        label: 'Shop Settings',
-        subtitle: 'Edit your profile',
-        color: AppTheme.info,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ShopSettingsScreen()),
-        ),
-      ),
-      _QuickAction(
-        icon: Icons.bar_chart_rounded,
-        label: 'Analytics',
-        subtitle: 'View performance',
-        color: AppTheme.success,
-        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Analytics coming soon')),
-        ),
-      ),
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.3,
-      ),
-      itemCount: actions.length,
-      itemBuilder: (_, i) => _QuickActionCard(
-          action: actions[i], isDark: isDark),
     );
   }
 }
@@ -686,6 +611,185 @@ class _OrderCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+
+class _NavItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  const _NavItem({required this.icon, required this.activeIcon, required this.label});
+}
+
+class _BottomNav extends StatelessWidget {
+  final int currentIndex;
+  final bool isDark;
+  final List<_NavItem> items;
+  final ValueChanged<int> onTap;
+
+  const _BottomNav({
+    required this.currentIndex,
+    required this.isDark,
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppTheme.darkDivider : Colors.grey.shade100,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(items.length, (i) {
+              final item = items[i];
+              final selected = currentIndex == i;
+              return GestureDetector(
+                onTap: () => onTap(i),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppTheme.primary.withValues(alpha: 0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          selected ? item.activeIcon : item.icon,
+                          color: selected
+                              ? AppTheme.primary
+                              : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          color: selected
+                              ? AppTheme.primary
+                              : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW: Dashboard body extracted from build() so IndexedStack can hold it
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DashboardBody extends StatelessWidget {
+  final AuthService auth;
+  final bool isDark;
+
+  const _DashboardBody({required this.auth, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _StatsRow(sellerId: auth.uid, isDark: isDark),
+          const SizedBox(height: 24),
+          _SectionHeader(title: 'Quick Actions', isDark: isDark),
+          const SizedBox(height: 12),
+          _buildQuickActions(context, auth.uid, isDark),
+          const SizedBox(height: 24),
+          _SectionHeader(title: 'Active Orders', isDark: isDark),
+          const SizedBox(height: 12),
+          _OrdersList(sellerId: auth.uid, isDark: isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context, String uid, bool isDark) {
+    final actions = [
+      _QuickAction(
+        icon: Icons.add_circle_outline_rounded,
+        label: 'Add Product',
+        subtitle: 'List a new item',
+        color: AppTheme.primary,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => ProductManagerScreen(shopId: uid))),
+      ),
+      _QuickAction(
+        icon: Icons.inventory_2_outlined,
+        label: 'Manage Stock',
+        subtitle: 'Update availability',
+        color: AppTheme.secondary,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => ProductManagerScreen(shopId: uid, manageStock: true))),
+      ),
+      _QuickAction(
+        icon: Icons.storefront_rounded,
+        label: 'Shop Settings',
+        subtitle: 'Edit your profile',
+        color: AppTheme.info,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const ShopSettingsScreen())),
+      ),
+      _QuickAction(
+        icon: Icons.bar_chart_rounded,
+        label: 'Analytics',
+        subtitle: 'View performance',
+        color: AppTheme.success,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const SellerAnalyticsScreen())),
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.3,
+      ),
+      itemCount: actions.length,
+      itemBuilder: (_, i) => _QuickActionCard(action: actions[i], isDark: isDark),
     );
   }
 }
