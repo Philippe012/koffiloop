@@ -809,7 +809,6 @@ class _SellerProfileHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          // Slightly warmer tint than customer to visually differentiate
           colors: [Color(0xFF6B3A2A), AppTheme.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -817,7 +816,6 @@ class _SellerProfileHeader extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // ── Avatar with camera badge ───────────────────────────────────────
           GestureDetector(
             onTap: onEditPhoto,
             child: Stack(
@@ -943,10 +941,6 @@ class _SellerProfileHeader extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Seller Quick Stats
-// Shows: Total Orders · Active Orders · Total Revenue (from completed orders)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _SellerQuickStats extends StatelessWidget {
   final String uid;
@@ -1063,9 +1057,6 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared menu building blocks (private to this file)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _MenuSection extends StatelessWidget {
   final String title;
@@ -1170,9 +1161,6 @@ class _MenuTile extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Theme Mode tile — identical to customer version
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ThemeModeTile extends StatelessWidget {
   final bool isDark;
@@ -1282,10 +1270,6 @@ class _ThemeModeTile extends StatelessWidget {
         ThemeMode.system => 'System',
       };
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Toggle
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _Toggle extends StatelessWidget {
   final bool value;

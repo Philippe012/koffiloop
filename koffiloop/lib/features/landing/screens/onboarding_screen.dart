@@ -19,21 +19,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Discover Local Cafés',
       subtitle:
           'Browse hundreds of independent coffee shops near you — from hidden gems to beloved staples.',
-      icon: Icons.store_rounded,
+      image: 'assets/images/onboarding_cafe1.jpeg',
       gradient: [Color(0xFF6F4E37), Color(0xFF4A2E1A)],
+      
     ),
     _OnboardingData(
       title: 'Order Before You Arrive',
       subtitle:
           'Skip the queue. Place your order from anywhere and pick it up fresh when you walk in.',
-      icon: Icons.coffee_rounded,
+      image: 'assets/images/onboarding_cafe2.jpeg',
       gradient: [Color(0xFF8B6347), Color(0xFF5C3A1E)],
     ),
     _OnboardingData(
-      title: 'Find What\'s Near You',
+      title: 'Experience Café Hospitality',
       subtitle:
-          'See open cafés on a live map, check wait times, and get directions in one tap.',
-      icon: Icons.map_rounded,
+          'Enjoy friendly service, handcrafted coffee, and welcoming spaces from cafés that care about every cup they serve.',
+      image: 'assets/images/onboarding_cafe3.jpeg',
       gradient: [Color(0xFF7A5230), Color(0xFF3E2010)],
     ),
   ];
@@ -159,13 +160,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 class _OnboardingData {
   final String title;
   final String subtitle;
-  final IconData icon;
+  final String image;
   final List<Color> gradient;
 
   const _OnboardingData({
     required this.title,
     required this.subtitle,
-    required this.icon,
+    required this.image,
     required this.gradient,
   });
 }
@@ -226,23 +227,26 @@ class _OnboardingPageState extends State<_OnboardingPage>
                   ScaleTransition(
                     scale: _iconAnim,
                     child: Container(
-                      width: 140,
-                      height: 140,
+                      width: 260,
+                      height: 260,
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          width: 1.5,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                        image: DecorationImage(
+                            image: AssetImage(widget.data.image), 
+                            fit: BoxFit.cover,                            
                         ),
-                      ),
-                      child: Icon(
-                        widget.data.icon,
-                        size: 64,
-                        color: Colors.white,
                       ),
                     ),
                   ),
+
+
                   const SizedBox(height: 48),
                   FadeTransition(
                     opacity: _textAnim,

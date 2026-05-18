@@ -25,10 +25,10 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   
   await FirebaseAppCheck.instance.activate(
-  providerAndroid: kDebugMode 
-      ? AndroidProvider.debug 
-      : AndroidProvider.playIntegrity,  
-);
+    androidProvider: kDebugMode
+        ? AndroidProvider.debug
+        : AndroidProvider.playIntegrity,
+  );
   runApp(const KofiLoopApp());
 }
 

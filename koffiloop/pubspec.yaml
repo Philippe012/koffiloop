@@ -35,7 +35,7 @@ dependencies:
   flutter_local_notifications: ^17.2.1
   timezone: ^0.9.4
 
-  firebase_app_check: ^0.4.4+1
+  firebase_app_check: ^0.4.0
 
  
 
@@ -53,6 +53,9 @@ flutter:
     - assets/images/coffee_bg.jpeg
     - assets/images/logo-white.png
     - assets/images/google_logo.png
+    - assets/images/onboarding_cafe1.jpeg
+    - assets/images/onboarding_cafe2.jpeg
+    - assets/images/onboarding_cafe3.jpeg
 
 flutter_launcher_icons:
   android: true
