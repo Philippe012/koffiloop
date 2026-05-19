@@ -5,11 +5,15 @@ import 'package:koffiloop/core/theme/app_theme.dart';
 class SellerChatScreen extends StatefulWidget {
   final String customerId;
   final String shopId;
+  final String customerName;        
+  final String? customerPhotoURL;   
 
   const SellerChatScreen({
     super.key,
     required this.customerId,
     required this.shopId,
+    this.customerName = 'Customer', 
+    this.customerPhotoURL,
   });
 
   @override
@@ -34,12 +38,43 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
 
     final now = FieldValue.serverTimestamp();
     try {
+      
+      String shopName = 'Café'; 
+      try {
+        final shopDoc = await FirebaseFirestore.instance
+            .collection('shops')
+            .doc(widget.shopId) 
+            .get();
+        if (shopDoc.exists && shopDoc.data()?['name'] != null) {
+          shopName = shopDoc.data()!['name'] as String;
+        }
+      } catch (_) {
+        // Keep fallback if fetch fails
+      }
+
+
+      String customerName = 'Customer';
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(widget.customerId)
+              .get();
+          if (userDoc.exists && userDoc.data()?['displayName'] != null) {
+            customerName = userDoc.data()!['displayName'] as String;
+          }
+        } catch (_) {
+          // Keep fallback name if fetch fails
+        }
+
+
       await FirebaseFirestore.instance
           .collection('conversations')
           .doc(_convId)
           .set({
         'customerId': widget.customerId,
         'shopId': widget.shopId,
+        'customerName': customerName,
+        'shopName': shopName,
         'participants': [widget.customerId, widget.shopId],
         'lastMessage': text,
         'lastMessageAt': now,
@@ -112,15 +147,25 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
                 shape: BoxShape.circle,
                 color: AppTheme.secondary.withValues(alpha: 0.12),
               ),
-              child: const Icon(Icons.person_rounded,
-                  color: AppTheme.primary, size: 18),
+              child: widget.customerPhotoURL != null &&
+                      widget.customerPhotoURL!.isNotEmpty
+                  ? ClipOval(
+                      child: Image.network(widget.customerPhotoURL!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.person_rounded,
+                              color: AppTheme.primary,
+                              size: 18)),
+                    )
+                  : const Icon(Icons.person_rounded,
+                      color: AppTheme.primary, size: 18),
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Customer',
+                  widget.customerName,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -213,110 +258,164 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
 
   Widget _buildInputBar(bool isDark) {
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        10,
-        16,
-        MediaQuery.of(context).viewInsets.bottom +
-            MediaQuery.of(context).padding.bottom +
-            10,
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 8,
+        bottom: 8,
       ),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkSurface : Colors.white,
         border: Border(
           top: BorderSide(
-            color: isDark
-                ? AppTheme.darkDivider
-                : Colors.grey.shade100,
+            color: isDark ? AppTheme.darkDivider : Colors.grey.shade100,
+            width: 0.5,
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppTheme.darkCard
-                    : AppTheme.background,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: TextField(
-                controller: _msgCtrl,
-                maxLines: 4,
-                minLines: 1,
-                textCapitalization: TextCapitalization.sentences,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark
-                      ? AppTheme.darkTextPrimary
-                      : AppTheme.textPrimary,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Reply to customer...',
-                  hintStyle: TextStyle(
-                    fontSize: 14,
-                    color: isDark
-                        ? AppTheme.darkTextSecondary
-                        : Colors.grey.shade400,
-                  ),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 12),
-                ),
-                onSubmitted: (_) => _send(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: _sending ? null : _send,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: _sending
-                    ? AppTheme.primary.withValues(alpha: 0.5)
-                    : AppTheme.primary,
-                shape: BoxShape.circle,
-                boxShadow: _sending
-                    ? []
-                    : [
-                        BoxShadow(
-                          color: AppTheme.primary
-                              .withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-              ),
-              child: _sending
-                  ? const Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.send_rounded,
-                      color: Colors.white, size: 20),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+
+            if (true)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.attach_file_rounded,
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : Colors.grey.shade500,
+                    size: 22,
+                  ),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Attachment feature coming soon!'),
+                      ),
+                    );
+                  },
+                  tooltip: 'Attach',
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            Expanded(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 120),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppTheme.darkCard
+                        : AppTheme.background,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: isDark
+                          ? AppTheme.darkDivider
+                          : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _msgCtrl,
+                    maxLines: null,
+                    minLines: 1,
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Type a message...',
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary.withValues(alpha: 0.7)
+                            : Colors.grey.shade400,
+                      ),
+                      isDense: true,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                    ),
+                    onSubmitted: (_) => _send(),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: _msgCtrl.text.trim().isEmpty || _sending ? null : _send,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _msgCtrl.text.trim().isEmpty || _sending
+                      ? (isDark
+                          ? AppTheme.darkDivider
+                          : Colors.grey.shade300)
+                      : AppTheme.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: (_msgCtrl.text.trim().isEmpty || _sending)
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: AppTheme.primary.withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                ),
+                child: _sending
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Icon(
+                        Icons.send_rounded,
+                        color: _msgCtrl.text.trim().isEmpty
+                            ? (isDark
+                                ? AppTheme.darkTextSecondary
+                                : Colors.grey.shade400)
+                            : Colors.white,
+                        size: 20,
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
-
+  
+  
   String _formatTime(DateTime dt) {
-    final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m ${dt.hour < 12 ? 'AM' : 'PM'}';
+      final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final m = dt.minute.toString().padLeft(2, '0');
+      return '$h:$m ${dt.hour < 12 ? 'AM' : 'PM'}';
+    }
   }
-}
 
 class _Bubble extends StatelessWidget {
   final String text;

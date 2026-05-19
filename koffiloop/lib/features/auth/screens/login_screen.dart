@@ -4,6 +4,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 import 'package:koffiloop/services/auth_service.dart';
 import 'package:koffiloop/core/theme/app_theme.dart';
+import 'dart:io';
+import 'dart:async';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,6 +26,10 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _slideCtrl;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
+  final _googleSignInPlugin = GoogleSignIn(
+    scopes: ['email', 'profile'],
+    serverClientId: '680298750372-jg909kjei1a9jkm45drkoqv04obntdb2.apps.googleusercontent.com',
+  );
 
   bool _isLogin = true;
   bool _obscurePass = true;
@@ -78,7 +84,8 @@ class _LoginScreenState extends State<LoginScreen>
         await auth.login(_emailCtrl.text.trim(), _passCtrl.text, context);
       } else {
         await auth.signup(
-            _emailCtrl.text.trim(), _passCtrl.text, _role, context);
+        _emailCtrl.text.trim(), _passCtrl.text, _role, context,
+        displayName: _nameCtrl.text.trim());
       }
     } catch (e) {
       if (mounted) {
@@ -93,25 +100,103 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _googleSignIn() async {
-    setState(() => _googleLoading = true);
-    try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return;
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      await FirebaseAuth.instance.signInWithCredential(credential);
-      if (mounted) {
-        context.read<AuthService>().handlePostLogin(context);
+  setState(() => _googleLoading = true);
+
+  try {
+    final GoogleSignInAccount? googleUser =
+        await _googleSignInPlugin.signIn();
+
+    if (googleUser == null) {
+      if (mounted) _showError('Sign-in cancelled');
+      return;
+    }
+
+    final GoogleSignInAuthentication googleAuth =
+        await googleUser.authentication;
+
+    if (googleAuth.accessToken == null ||
+        googleAuth.idToken == null) {
+      throw Exception('Missing authentication tokens');
+    }
+
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    final userCredential = await FirebaseAuth.instance
+        .signInWithCredential(credential);
+
+    if (mounted && userCredential.user != null) {
+      final authService = context.read<AuthService>();
+
+      try {
+        final result = await InternetAddress.lookup(
+          'firestore.googleapis.com',
+        ).timeout(
+          const Duration(seconds: 5),
+          onTimeout: () =>
+              throw TimeoutException('DNS lookup timed out'),
+        );
+
+        debugPrint('Firestore DNS: ${result[0].address}');
+      } catch (e) {
+        debugPrint('DNS check skipped: $e');
       }
-    } catch (e) {
-      if (mounted) _showError('Google sign-in failed. Please try again.');
-    } finally {
-      if (mounted) setState(() => _googleLoading = false);
+
+      if (mounted) {
+        await authService.handlePostLogin(context);
+      }
+      }
+  } on FirebaseAuthException catch (e) {
+    debugPrint(
+      'FirebaseAuthException: ${e.code} - ${e.message}',
+    );
+
+    if (mounted) {
+      String msg = e.message ?? 'Google sign-in failed';
+
+      if (e.code ==
+          'account-exists-with-different-credential') {
+        msg =
+            'This email is already registered with a different sign-in method.';
+      }
+
+      _showError(msg);
+    }
+  } on SocketException catch (e) {
+    debugPrint('Network error: $e');
+
+    if (mounted) {
+      _showError(
+        'Network error: Check your internet connection and try again.',
+      );
+    }
+  } on TimeoutException catch (e) {
+    debugPrint('Timeout: $e');
+
+    if (mounted) {
+      _showError(
+        'Request timed out. Please check your connection and try again.',
+      );
+    }
+  } catch (e, stack) {
+    debugPrint('Unexpected error: $e\n$stack');
+
+    if (mounted) {
+      final msg = e.toString();
+      final shortMsg = msg.length > 100
+          ? '${msg.substring(0, 100)}...'
+          : msg;
+
+      _showError('Sign-in failed: $shortMsg');
+    }
+  } finally {
+    if (mounted) {
+      setState(() => _googleLoading = false);
     }
   }
+}
 
   Future<void> _resetPassword() async {
     if (_emailCtrl.text.trim().isEmpty || !_emailCtrl.text.contains('@')) {

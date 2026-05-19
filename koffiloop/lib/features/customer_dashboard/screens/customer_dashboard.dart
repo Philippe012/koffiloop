@@ -140,15 +140,17 @@ class _BottomNav extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         item.label,
+                        textAlign: TextAlign.center,  
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 12,  
+                          fontWeight: selected ? FontWeight.w800 : FontWeight.w600, 
                           color: selected
                               ? AppTheme.primary
                               : (isDark
-                                  ? AppTheme.darkTextSecondary
-                                  : Colors.grey.shade400),
+                                  ? AppTheme.darkTextSecondary.withValues(alpha: 0.9) 
+                                  : Colors.grey.shade700), 
+                          letterSpacing: 0.2,
+                          height: 1.2, 
                         ),
                       ),
                     ],

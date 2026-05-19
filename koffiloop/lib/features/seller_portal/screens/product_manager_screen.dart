@@ -180,13 +180,14 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(widget.manageStock ? 'Manage Stock' : 'Products'),
-        backgroundColor:
-            isDark ? AppTheme.darkSurface : AppTheme.primary,
+        backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.primary,
         foregroundColor: Colors.white,
         titleTextStyle: const TextStyle(
           color: Colors.white,
@@ -209,21 +210,35 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          // Form panel (collapsible)
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: _showForm
-                ? _buildForm(isDark)
-                : const SizedBox.shrink(),
-          ),
+      
+      body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: EdgeInsets.only(
+          bottom: keyboardHeight + 20, 
+          top: 8,
+          left: 16,
+          right: 16,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_showForm)
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: _buildForm(isDark),
+              ),
 
-          // Products list
-          Expanded(child: _buildProductList(isDark)),
-        ],
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.55,
+              child: _buildProductList(isDark),
+            ),
+            
+            SizedBox(height: 80),
+          ],
+        ),
       ),
+      
       floatingActionButton: !widget.manageStock && !_showForm
           ? FloatingActionButton.extended(
               onPressed: () => setState(() => _showForm = true),
@@ -238,7 +253,7 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
 
   Widget _buildForm(bool isDark) {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCard : Colors.white,
@@ -249,6 +264,7 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               _editingId != null ? 'Edit Product' : 'New Product',
@@ -261,8 +277,9 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
                     : AppTheme.textPrimary,
               ),
             ),
+
             const SizedBox(height: 14),
-            // Image picker row
+
             Row(
               children: [
                 GestureDetector(
@@ -286,65 +303,37 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(16),
                                 child: CachedNetworkImage(
-                                    imageUrl: _existingImageUrl!,
-                                    fit: BoxFit.cover),
+                                  imageUrl: _existingImageUrl!,
+                                  fit: BoxFit.cover,
+                                ),
                               )
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_photo_alternate_rounded,
-                                      color: isDark
-                                          ? AppTheme.darkTextSecondary
-                                          : AppTheme.textSecondary,
-                                      size: 28),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Photo',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: isDark
-                                          ? AppTheme.darkTextSecondary
-                                          : AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            : const Icon(Icons.add_photo_alternate_rounded),
                   ),
                 ),
                 const SizedBox(width: 14),
+
                 Expanded(
                   child: Column(
                     children: [
                       TextFormField(
                         controller: _nameCtrl,
-                        validator: (v) => v == null || v.trim().isEmpty
-                            ? 'Name required'
-                            : null,
+                        validator: (v) =>
+                            v == null || v.trim().isEmpty ? 'Name required' : null,
                         decoration: const InputDecoration(
                           hintText: 'Product name',
-                          prefixIcon:
-                              Icon(Icons.coffee_rounded, size: 18),
                         ),
                       ),
                       const SizedBox(height: 10),
                       TextFormField(
                         controller: _priceCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return 'Price required';
-                          }
-                          if (double.tryParse(v) == null ||
-                              double.parse(v) <= 0) {
-                            return 'Enter valid price';
-                          }
+                          if (v == null || v.isEmpty) return 'Price required';
+                          if (double.tryParse(v) == null) return 'Invalid price';
                           return null;
                         },
                         decoration: const InputDecoration(
-                          hintText: 'Price (\$)',
-                          prefixIcon: Icon(Icons.attach_money_rounded,
-                              size: 18),
+                          hintText: 'Price',
                         ),
                       ),
                     ],
@@ -352,47 +341,37 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 12),
+
             TextFormField(
               controller: _descCtrl,
               maxLines: 2,
               decoration: const InputDecoration(
-                hintText: 'Description (optional)',
-                prefixIcon: Icon(Icons.description_outlined, size: 18),
-                alignLabelWithHint: true,
+                hintText: 'Description',
               ),
             ),
+
             const SizedBox(height: 16),
+
             GestureDetector(
               onTap: _uploading ? null : _saveProduct,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+              child: Container(
                 height: 50,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: _uploading
-                        ? [Colors.grey.shade400, Colors.grey.shade400]
+                        ? [Colors.grey, Colors.grey]
                         : [AppTheme.primary, AppTheme.primaryDark],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: _uploading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
+                      ? const CircularProgressIndicator(color: Colors.white)
                       : Text(
-                          _editingId != null
-                              ? 'Update Product'
-                              : 'Add to Menu',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                          ),
+                          _editingId != null ? 'Update Product' : 'Add to Menu',
+                          style: const TextStyle(color: Colors.white),
                         ),
                 ),
               ),
@@ -455,7 +434,8 @@ class _ProductManagerScreenState extends State<ProductManagerScreen> {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 
+                MediaQuery.of(context).viewInsets.bottom + 100),
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (_, i) {
             final doc = snapshot.data!.docs[i];

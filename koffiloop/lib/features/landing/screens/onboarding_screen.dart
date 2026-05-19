@@ -221,62 +221,62 @@ class _OnboardingPageState extends State<_OnboardingPage>
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(32, 100, 32, 160),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ScaleTransition(
-                    scale: _iconAnim,
-                    child: Container(
-                      width: 260,
-                      height: 260,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
+              child: SingleChildScrollView(  
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ScaleTransition(
+                      scale: _iconAnim,
+                      child: Container(
+                        width: 260,
+                        height: 260,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                          image: DecorationImage(
+                            image: AssetImage(widget.data.image),
+                            fit: BoxFit.cover,
                           ),
-                        ],
-                        image: DecorationImage(
-                            image: AssetImage(widget.data.image), 
-                            fit: BoxFit.cover,                            
                         ),
                       ),
                     ),
-                  ),
-
-
-                  const SizedBox(height: 48),
-                  FadeTransition(
-                    opacity: _textAnim,
-                    child: Column(
-                      children: [
-                        Text(
-                          widget.data.title,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w800,
-                            fontFamily: 'Georgia',
-                            height: 1.2,
+                    const SizedBox(height: 48),
+                    FadeTransition(
+                      opacity: _textAnim,
+                      child: Column(
+                        children: [
+                          Text(
+                            widget.data.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Georgia',
+                              height: 1.2,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          widget.data.subtitle,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.78),
-                            fontSize: 16,
-                            height: 1.6,
+                          const SizedBox(height: 20),
+                          Text(
+                            widget.data.subtitle,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.78),
+                              fontSize: 16,
+                              height: 1.6,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -158,7 +158,7 @@ class SellerInboxScreen extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    'Customer',
+                                    data['customerName'] ?? 'Customer', 
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: isUnread
@@ -168,8 +168,10 @@ class SellerInboxScreen extends StatelessWidget {
                                           ? AppTheme.darkTextPrimary
                                           : AppTheme.textPrimary,
                                     ),
+                                    overflow: TextOverflow.ellipsis, 
                                   ),
                                 ),
+                                
                                 Text(
                                   timeStr,
                                   style: TextStyle(

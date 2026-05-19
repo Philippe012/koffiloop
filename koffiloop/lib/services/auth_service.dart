@@ -6,7 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 class AuthService extends ChangeNotifier {
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
-  final _googleSignIn = GoogleSignIn(); 
+  final _googleSignIn = GoogleSignIn();
   String _role = 'customer';
 
   String get role => _role;
@@ -25,18 +25,21 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> signup(
-      String email, String password, String role, BuildContext context) async {
+    String email, String password, String role, BuildContext context,
+    {String displayName = ''}) async {
     try {
       final userCredential = await _auth.createUserWithEmailAndPassword(
           email: email, password: password);
       final uid = userCredential.user!.uid;
-      
-      // Create user document
+
+      // Also update Firebase Auth profile so displayName is available everywhere
+      await userCredential.user!.updateDisplayName(displayName);
+
       await _db.collection('users').doc(uid).set({
         'uid': uid,
         'email': email,
         'role': role,
-        'displayName': '',
+        'displayName': displayName,
         'photoURL': '',
         'createdAt': FieldValue.serverTimestamp(),
         'lastLogin': FieldValue.serverTimestamp(),
@@ -53,7 +56,7 @@ class AuthService extends ChangeNotifier {
   Future<void> signInWithGoogle(BuildContext context) async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return; 
+      if (googleUser == null) return;
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       
@@ -72,7 +75,7 @@ class AuthService extends ChangeNotifier {
           'email': googleUser.email,
           'displayName': googleUser.displayName ?? '',
           'photoURL': googleUser.photoUrl ?? '',
-          'role': 'customer', 
+          'role': 'customer',
           'createdAt': FieldValue.serverTimestamp(),
           'lastLogin': FieldValue.serverTimestamp(),
         });
@@ -106,7 +109,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     await _auth.signOut();
-    await _googleSignIn.signOut(); 
+    await _googleSignIn.signOut();
     _role = 'customer';
     notifyListeners();
   }

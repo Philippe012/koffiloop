@@ -105,6 +105,7 @@ class SellerMessagesScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             itemCount: docs.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
+            
             itemBuilder: (context, i) {
               final data = docs[i].data() as Map<String, dynamic>;
               final customerId = data['customerId'] ?? '';
@@ -116,128 +117,194 @@ class SellerMessagesScreen extends StatelessWidget {
                   ? _formatTime(timestamp.toDate())
                   : '';
 
-              return GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SellerChatScreen(
-                      customerId: customerId,
-                      shopId: auth.uid,
-                    ),
-                  ),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkCard : Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: isUnread
-                          ? AppTheme.primary.withValues(alpha: 0.35)
-                          : (isDark
-                              ? AppTheme.darkDivider
-                              : Colors.grey.shade100),
-                      width: isUnread ? 1.5 : 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black
-                            .withValues(alpha: isDark ? 0.2 : 0.04),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: AppTheme.secondary
-                              .withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(customerId)
+                    .get(),
+                builder: (context, userSnap) {
+                  String customerName = 'Customer';
+                  String? photoURL;
+
+                  if (userSnap.hasData &&
+                      userSnap.data!.exists) {
+                    final userData =
+                        userSnap.data!.data()
+                            as Map<String, dynamic>;
+
+                    final fetched =
+                        (userData['displayName'] as String?)
+                                ?.trim() ??
+                            '';
+
+                    customerName = fetched.isNotEmpty
+                        ? fetched
+                        : (userData['email'] as String?)
+                                ?.split('@')
+                                .first ??
+                            'Customer';
+
+                    photoURL =
+                        userData['photoURL'] as String?;
+                  }
+
+                  return GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SellerChatScreen(
+                          customerId: customerId,
+                          shopId: auth.uid,
+                          customerName: customerName,
+                          customerPhotoURL: photoURL,
                         ),
-                        child: const Icon(Icons.person_rounded,
-                            color: AppTheme.primary, size: 24),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Customer',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: isUnread
-                                          ? FontWeight.w700
-                                          : FontWeight.w600,
-                                      color: isDark
-                                          ? AppTheme.darkTextPrimary
-                                          : AppTheme.textPrimary,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color:
+                            isDark ? AppTheme.darkCard : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isUnread
+                              ? AppTheme.primary
+                                  .withValues(alpha: 0.35)
+                              : (isDark
+                                  ? AppTheme.darkDivider
+                                  : Colors.grey.shade100),
+                          width: isUnread ? 1.5 : 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                                alpha: isDark ? 0.2 : 0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: AppTheme.secondary
+                                  .withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: photoURL != null &&
+                                    photoURL.isNotEmpty
+                                ? ClipOval(
+                                    child: Image.network(
+                                      photoURL,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (_, __, ___) =>
+                                              const Icon(
+                                        Icons.person_rounded,
+                                        color: AppTheme.primary,
+                                        size: 24,
+                                      ),
                                     ),
+                                  )
+                                : const Icon(
+                                    Icons.person_rounded,
+                                    color: AppTheme.primary,
+                                    size: 24,
                                   ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        customerName,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: isUnread
+                                              ? FontWeight.w700
+                                              : FontWeight.w600,
+                                          color: isDark
+                                              ? AppTheme
+                                                  .darkTextPrimary
+                                              : AppTheme
+                                                  .textPrimary,
+                                        ),
+                                        overflow:
+                                            TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Text(
+                                      timeStr,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isUnread
+                                            ? AppTheme.primary
+                                            : (isDark
+                                                ? AppTheme
+                                                    .darkTextSecondary
+                                                : Colors
+                                                    .grey.shade400),
+                                        fontWeight: isUnread
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                const SizedBox(height: 3),
                                 Text(
-                                  timeStr,
+                                  lastMsg,
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 13,
                                     color: isUnread
-                                        ? AppTheme.primary
+                                        ? (isDark
+                                            ? AppTheme
+                                                .darkTextPrimary
+                                            : AppTheme
+                                                .textPrimary)
                                         : (isDark
                                             ? AppTheme
                                                 .darkTextSecondary
-                                            : Colors.grey.shade400),
+                                            : AppTheme
+                                                .textSecondary),
                                     fontWeight: isUnread
-                                        ? FontWeight.w600
+                                        ? FontWeight.w500
                                         : FontWeight.normal,
                                   ),
+                                  maxLines: 1,
+                                  overflow:
+                                      TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              lastMsg,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isUnread
-                                    ? (isDark
-                                        ? AppTheme.darkTextPrimary
-                                        : AppTheme.textPrimary)
-                                    : (isDark
-                                        ? AppTheme.darkTextSecondary
-                                        : AppTheme.textSecondary),
-                                fontWeight: isUnread
-                                    ? FontWeight.w500
-                                    : FontWeight.normal,
+                          ),
+                          if (isUnread) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                      if (isUnread) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                            color: AppTheme.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               );
             },
+          
           );
         },
       ),

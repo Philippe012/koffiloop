@@ -40,6 +40,15 @@ class _ChatScreenState extends State<ChatScreen> {
     final now = FieldValue.serverTimestamp();
 
     try {
+      String customerName = 'Customer';
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+        customerName = userDoc.data()?['displayName'] ?? 'Customer';
+      } catch (_) {}
+
       await FirebaseFirestore.instance
           .collection('conversations')
           .doc(convId)
@@ -48,6 +57,7 @@ class _ChatScreenState extends State<ChatScreen> {
         'shopId': widget.shopId,
         'shopName': widget.shopName,
         'customerId': userId,
+        'customerName': customerName, 
         'lastMessage': text,
         'lastMessageAt': now,
         'lastSenderId': userId,
@@ -69,6 +79,29 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) setState(() => _sending = false);
     }
   }
+
+
+  Future<void> backfillMissingCustomerNames() async {
+  final conversations = await FirebaseFirestore.instance
+      .collection('conversations')
+      .where('customerName', isEqualTo: null)
+      .get();
+
+  for (var doc in conversations.docs) {
+    final data = doc.data();
+    final customerId = data['customerId'] as String?;
+    if (customerId != null) {
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(customerId)
+            .get();
+        final name = userDoc.data()?['displayName'] ?? 'Customer';
+        await doc.reference.update({'customerName': name});
+      } catch (_) {}
+    }
+  }
+}
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {

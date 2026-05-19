@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "680298750372",
+    "firebase_url": "https://koffiloop-default-rtdb.firebaseio.com",
     "project_id": "koffiloop",
     "storage_bucket": "koffiloop.firebasestorage.app"
   },
@@ -12,7 +13,20 @@
           "package_name": "com.example.koffiloop"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "680298750372-qd083p7qgt20vicr65jrtbn5qbeqig3j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.koffiloop",
+            "certificate_hash": "ae4dc92cdcf056de83981499527ce8f347df23fe"
+          }
+        },
+        {
+          "client_id": "680298750372-jg909kjei1a9jkm45drkoqv04obntdb2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDHlbNcKkkAjnCBDoBkDeckphG1io_GykI"
@@ -20,7 +34,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "680298750372-jg909kjei1a9jkm45drkoqv04obntdb2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "680298750372-vgm0uedrjqsga4a0hhv0cl7ktbbahlqs.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.koffiloop"
+              }
+            }
+          ]
         }
       }
     }
