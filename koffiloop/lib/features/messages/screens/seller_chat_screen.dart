@@ -25,9 +25,52 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
   final ScrollController _scrollCtrl = ScrollController();
   bool _sending = false;
 
+  String _displayName = 'Customer'; 
+  bool _nameLoading = true;
+
   String get _convId {
     final parts = [widget.customerId, widget.shopId]..sort();
     return parts.join('_');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomerName(); 
+  }
+
+  Future<void> _loadCustomerName() async {
+    try {
+      // First, try the passed name (fast path)
+      if (widget.customerName != 'Customer' && widget.customerName.isNotEmpty) {
+        setState(() {
+          _displayName = widget.customerName;
+          _nameLoading = false;
+        });
+        return;
+      }
+
+    final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.customerId)
+          .get();
+      
+      if (mounted && doc.exists) {
+        final name = doc.data()?['displayName'] as String?;
+        if (name != null && name.isNotEmpty) {
+          setState(() {
+            _displayName = name;
+            _nameLoading = false;
+          });
+        }
+      }
+    } catch (_) {
+      // Keep fallback 'Customer' on error
+    } finally {
+      if (mounted && _nameLoading) {
+        setState(() => _nameLoading = false);
+      }
+    }
   }
 
   Future<void> _send() async {
@@ -53,19 +96,6 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
       }
 
 
-      String customerName = 'Customer';
-        try {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(widget.customerId)
-              .get();
-          if (userDoc.exists && userDoc.data()?['displayName'] != null) {
-            customerName = userDoc.data()!['displayName'] as String;
-          }
-        } catch (_) {
-          // Keep fallback name if fetch fails
-        }
-
 
       await FirebaseFirestore.instance
           .collection('conversations')
@@ -73,7 +103,7 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
           .set({
         'customerId': widget.customerId,
         'shopId': widget.shopId,
-        'customerName': customerName,
+        'customerName': _displayName,
         'shopName': shopName,
         'participants': [widget.customerId, widget.shopId],
         'lastMessage': text,
@@ -138,6 +168,7 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
           ),
           onPressed: () => Navigator.pop(context),
         ),
+        
         title: Row(
           children: [
             Container(
@@ -164,23 +195,34 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.customerName,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Georgia',
-                    color: isDark
-                        ? AppTheme.darkTextPrimary
-                        : AppTheme.textPrimary,
-                  ),
-                ),
+                _nameLoading
+                    ? Container(
+                        width: 80,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppTheme.darkDivider
+                              : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      )
+                    : Text(
+                        _displayName,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Georgia',
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.textPrimary,
+                        ),
+                      ),
                 Text(
                   'Reply as your café',
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark
-                        ? AppTheme.darkTextSecondary
+                        ? AppTheme.darkTextSecondary.withValues(alpha: 0.8)
                         : AppTheme.textSecondary,
                   ),
                 ),
